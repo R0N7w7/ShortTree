@@ -126,21 +126,6 @@ SQLite uses a local file named `shorttree.db` by default:
 2. The database is created automatically on startup (`EnsureCreated`).
 3. Use Postman or curl to test the endpoints.
 
-## Notes and limitations
-
-- Authentication/authorization is not implemented.
-- `EnsureCreated` is used instead of migrations for simplicity.
-- In-memory cache is per instance; multi-instance deployments should use a distributed cache or Redis.
-- Click logging is best-effort; failures are logged but do not block redirects.
-
-## Roadmap ideas
-
-- Replace `EnsureCreated` with EF Core migrations.
-- Add authentication and API keys.
-- Add per-link analytics (daily/hourly aggregation).
-- Introduce Redis for distributed cache and counters.
-- Add rate limiting and abuse detection.
-
 ## License
 
 MIT
