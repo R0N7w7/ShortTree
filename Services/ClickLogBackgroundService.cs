@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using ShortTree.Data;
+using ShortTree.Hubs;
 
 namespace ShortTree.Services
 {
@@ -7,15 +9,18 @@ namespace ShortTree.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ClickLogChannel _channel;
+        private readonly IHubContext<ClickHub> _hub;
         private readonly ILogger<ClickLogBackgroundService> _logger;
 
         public ClickLogBackgroundService(
             IServiceProvider serviceProvider,
             ClickLogChannel channel,
+            IHubContext<ClickHub> hub,
             ILogger<ClickLogBackgroundService> logger)
         {
             _serviceProvider = serviceProvider;
             _channel = channel;
+            _hub = hub;
             _logger = logger;
         }
 
@@ -39,13 +44,31 @@ namespace ShortTree.Services
 
                     db.ClickLogs.Add(clickLog);
 
-                    var link = await db.Links.FirstOrDefaultAsync(l => l.Id == entry.LinkId, stoppingToken);
+                    var link = await db.Links
+                        .Include(l => l.User)
+                        .FirstOrDefaultAsync(l => l.Id == entry.LinkId, stoppingToken);
                     if (link != null)
                     {
                         link.ClickCount += 1;
                     }
 
                     await db.SaveChangesAsync(stoppingToken);
+
+                    if (link?.User?.Username != null)
+                    {
+                        var clickEvent = new ClickEvent(
+                            link.Id,
+                            link.User.Username,
+                            link.Slug,
+                            link.ClickCount,
+                            entry.Timestamp);
+
+                        await _hub.Clients.Group(GroupNames.User(link.User.Username))
+                            .SendAsync("click", clickEvent, stoppingToken);
+
+                        await _hub.Clients.Group(GroupNames.Link(link.User.Username, link.Slug))
+                            .SendAsync("click", clickEvent, stoppingToken);
+                    }
                 }
                 catch (Exception ex)
                 {
